@@ -562,10 +562,10 @@ func TestProposal2AB(t *testing.T) {
 }
 
 // TestHandleMessageType_MsgAppend ensures:
-// 1. Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm.
-// 2. If an existing entry conflicts with a new one (same index but different terms),
-//    delete the existing entry and all that follow it; append any new entries not already in the log.
-// 3. If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, index of last new entry).
+//  1. Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm.
+//  2. If an existing entry conflicts with a new one (same index but different terms),
+//     delete the existing entry and all that follow it; append any new entries not already in the log.
+//  3. If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, index of last new entry).
 func TestHandleMessageType_MsgAppend2AB(t *testing.T) {
 	tests := []struct {
 		m       pb.Message
@@ -597,7 +597,7 @@ func TestHandleMessageType_MsgAppend2AB(t *testing.T) {
 		sm := newTestRaft(1, []uint64{1}, 10, 1, storage)
 		sm.becomeFollower(2, None)
 
-		sm.handleAppendEntries(tt.m)
+		sm.Step(tt.m)
 		if sm.RaftLog.LastIndex() != tt.wIndex {
 			t.Errorf("#%d: lastIndex = %d, want %d", i, sm.RaftLog.LastIndex(), tt.wIndex)
 		}

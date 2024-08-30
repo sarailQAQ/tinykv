@@ -1,0 +1,173 @@
+{
+  "bottomPanel": {
+    "config": {
+      "main": {
+        "type": "tab-area",
+        "widgets": [
+          {
+            "constructionOptions": {
+              "factoryId": "problems"
+            },
+            "innerWidgetState": {}
+          }
+        ],
+        "currentIndex": 0
+      }
+    },
+    "expanded": false
+  },
+  "leftPanel": {
+    "type": "sidepanel",
+    "items": [
+      {
+        "widget": {
+          "constructionOptions": {
+            "factoryId": "explorer-view-container"
+          },
+          "innerWidgetState": {
+            "parts": [
+              {
+                "widget": {
+                  "constructionOptions": {
+                    "factoryId": "files"
+                  },
+                  "innerWidgetState": {
+                    "decorations": {},
+                    "root": {
+                      "id": "WorkspaceNodeId",
+                      "name": "WorkspaceNode",
+                      "children": [
+                        {
+                          "id": "/Ubuntu/home/sarail/projects/tinykv",
+                          "uri": "file://wsl.localhost/Ubuntu/home/sarail/projects/tinykv",
+                          "expanded": false,
+                          "selected": true,
+                          "children": [],
+                          "visible": false,
+                          "focus": true,
+                          "stat": {
+                            "type": 2,
+                            "ctime": 1721703980660,
+                            "mtime": 1721703980660,
+                            "size": 0
+                          }
+                        }
+                      ],
+                      "visible": false,
+                      "selected": false
+                    },
+                    "model": {
+                      "selection": {
+                        "selectionStack": [
+                          {
+                            "focus": "/Ubuntu/home/sarail/projects/tinykv",
+                            "node": "/Ubuntu/home/sarail/projects/tinykv",
+                            "type": 1
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "partId": "{\"factoryId\":\"files\"}",
+                "collapsed": false,
+                "hidden": false
+              },
+              {
+                "widget": {
+                  "constructionOptions": {
+                    "factoryId": "plugin-view",
+                    "options": {
+                      "id": "plugin-view:go.explorer",
+                      "viewId": "go.explorer"
+                    }
+                  },
+                  "innerWidgetState": {
+                    "label": "go",
+                    "widgets": []
+                  }
+                },
+                "partId": "{\"factoryId\":\"plugin-view\",\"options\":{\"id\":\"plugin-view:go.explorer\",\"viewId\":\"go.explorer\"}}",
+                "collapsed": true,
+                "hidden": true
+              },
+              {
+                "widget": {
+                  "constructionOptions": {
+                    "factoryId": "plugin-view",
+                    "options": {
+                      "id": "plugin-view:npm",
+                      "viewId": "npm"
+                    }
+                  },
+                  "innerWidgetState": {
+                    "label": "NPM Scripts",
+                    "widgets": []
+                  }
+                },
+                "partId": "{\"factoryId\":\"plugin-view\",\"options\":{\"id\":\"plugin-view:npm\",\"viewId\":\"npm\"}}",
+                "collapsed": true,
+                "hidden": true
+              }
+            ],
+            "title": {
+              "label": "资源树",
+              "iconClass": "codemap-files-icon",
+              "closeable": true
+            }
+          }
+        },
+        "rank": 100,
+        "expanded": false
+      },
+      {
+        "widget": {
+          "constructionOptions": {
+            "factoryId": "search-in-workspace"
+          },
+          "innerWidgetState": {
+            "matchCaseState": {
+              "className": "match-case",
+              "enabled": true,
+              "title": "Match Case"
+            },
+            "wholeWordState": {
+              "className": "whole-word",
+              "enabled": true,
+              "title": "Match Whole Word"
+            },
+            "regExpState": {
+              "className": "use-regexp",
+              "enabled": false,
+              "title": "Use Regular Expression"
+            },
+            "includeIgnoredState": {
+              "className": "include-ignored fa fa-eye",
+              "enabled": false,
+              "title": "Include Ignored Files"
+            },
+            "showSearchDetails": false,
+            "searchInWorkspaceOptions": {
+              "matchCase": true,
+              "matchWholeWord": true,
+              "useRegExp": false,
+              "includeIgnored": false,
+              "include": [],
+              "exclude": [],
+              "maxResults": 2000
+            },
+            "searchTerm": "",
+            "replaceTerm": "",
+            "showReplaceField": false
+          }
+        },
+        "rank": 200,
+        "expanded": false
+      }
+    ]
+  },
+  "rightPanel": {
+    "type": "sidepanel",
+    "items": []
+  }
+}
