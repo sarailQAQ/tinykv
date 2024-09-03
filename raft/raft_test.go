@@ -1007,7 +1007,7 @@ func TestRestoreSnapshot2C(t *testing.T) {
 
 	storage := NewMemoryStorage()
 	sm := newTestRaft(1, []uint64{1, 2}, 10, 1, storage)
-	sm.handleSnapshot(pb.Message{Snapshot: &s})
+	handleSnapshot(sm, &pb.Message{Snapshot: &s})
 
 	if sm.RaftLog.LastIndex() != s.Metadata.Index {
 		t.Errorf("log.lastIndex = %d, want %d", sm.RaftLog.LastIndex(), s.Metadata.Index)
@@ -1039,7 +1039,7 @@ func TestRestoreIgnoreSnapshot2C(t *testing.T) {
 	}
 
 	// ignore snapshot
-	sm.handleSnapshot(pb.Message{Snapshot: &s})
+	handleSnapshot(sm, &pb.Message{Snapshot: &s})
 	if sm.RaftLog.committed != wcommit {
 		t.Errorf("commit = %d, want %d", sm.RaftLog.committed, wcommit)
 	}
@@ -1056,7 +1056,7 @@ func TestProvideSnap2C(t *testing.T) {
 	}
 	storage := NewMemoryStorage()
 	sm := newTestRaft(1, []uint64{1}, 10, 1, storage)
-	sm.handleSnapshot(pb.Message{Snapshot: &s})
+	handleSnapshot(sm, &pb.Message{Snapshot: &s})
 
 	sm.becomeCandidate()
 	sm.becomeLeader()

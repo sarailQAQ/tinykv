@@ -65,6 +65,7 @@ func (ra *raftAutomaton) build() {
 	register(StateCandidate, pb.MessageType_MsgRequestVoteResponse, handleRequestVoteResp)
 
 	register(StateAll, pb.MessageType_MsgHeartbeat, handleHeartBeat)
+	register(StateLeader, pb.MessageType_MsgHeartbeatResponse, handleHeartbeatResp)
 }
 
 func (ra *raftAutomaton) convert(r *Raft, msg *pb.Message) error {
@@ -171,7 +172,7 @@ func handleAppendEntries(r *Raft, m *pb.Message) error {
 	}
 
 	// 如果接收者日志中没有包含这样一个条目 即该条目的任期在 prevLogIndex 上能和 prevLogTerm 匹配上 则拒绝
-	if tempTerm, _ := r.RaftLog.Term(m.Index); tempTerm != preLogTerm {
+	if tempTerm, _ := r.RaftLog.Term(preLogIndex); tempTerm != preLogTerm {
 		r.sendAppendResp(m.From, r.RaftLog.LastIndex(), true)
 		return nil
 	}
@@ -222,8 +223,11 @@ func handleAppendEntriesResp(r *Raft, m *pb.Message) error {
 	commited := r.RaftLog.committed
 	r.updateCommitIndex()
 	if r.RaftLog.committed != commited {
-		for pr := range r.Prs {
-			r.sendAppend(pr)
+		for to := range r.Prs {
+			if to == r.id {
+				continue
+			}
+			r.sendAppend(to)
 		}
 	}
 
@@ -243,7 +247,7 @@ func handleRequestVote(r *Raft, m *pb.Message) error {
 	log.Debug(fmt.Sprintf("%x receive RequestVote from %x\n", r.id, m.From))
 
 	if r.Term < m.Term {
-		r.Term = None
+		r.Vote = None
 		r.Term = m.Term
 		if r.State != StateFollower {
 			r.becomeFollower(r.Term, None)
@@ -262,7 +266,7 @@ func handleRequestVote(r *Raft, m *pb.Message) error {
 
 	lastIndex := r.RaftLog.LastIndex()
 	lastTerm, _ := r.RaftLog.Term(lastIndex)
-	if m.LogTerm < lastTerm || (m.Index < lastIndex) {
+	if m.LogTerm < lastTerm || (m.LogTerm == lastTerm && m.Index < lastIndex) {
 		r.sendRequestVoteResponse(m.From, true)
 		return nil
 	}
@@ -322,5 +326,42 @@ func handleHeartBeat(r *Raft, m *pb.Message) error {
 	r.electionElapsed = 0
 	r.sendHeartbeatResponse(m.From)
 
+	return nil
+}
+
+func handleHeartbeatResp(r *Raft, m *pb.Message) error {
+	log.Debug(fmt.Sprintf("%x receive heartbeat resp from %x\n", r.id, m.From))
+	if r.Term < m.Term {
+		r.Term = m.Term
+		if r.State != StateFollower {
+			r.becomeFollower(r.Term, None)
+		}
+	}
+	r.heartbeatResp[m.From] = true
+	if m.Commit < r.RaftLog.committed {
+		r.sendAppend(m.From)
+	}
+	return nil
+}
+
+func handleSnapshot(r *Raft, m *pb.Message) error {
+	log.Debug(fmt.Sprintf("%x receive snapshot from %x\n", r.id, m.From))
+	if r.Term < m.Term {
+		r.Term = m.Term
+		if r.State != StateFollower {
+			r.becomeFollower(r.Term, None)
+		}
+	}
+	if r.Term > m.Term {
+		return nil
+	}
+	metaData := m.Snapshot.Metadata
+	shotIndex := metaData.Index
+	shotTerm := metaData.Term
+	//shotConf := metaData.ConfState
+
+	if shotIndex < r.RaftLog.committed || shotTerm < r.RaftLog.FirstIndex() {
+
+	}
 	return nil
 }

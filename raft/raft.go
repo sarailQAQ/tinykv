@@ -219,6 +219,40 @@ func newRaft(c *Config) *Raft {
 // current commit index to the given peer. Returns true if a message was sent.
 func (r *Raft) sendAppend(to uint64) bool {
 	// Your Code Here (2A).
+	pr, ok := r.Prs[to]
+	if !ok {
+		return false
+	}
+	log.Debug(fmt.Sprintf("%x send append to %x at term %d\n", r.id, to, r.Term))
+	prevLogIndex := pr.Next - 1
+	prevLogTerm, err := r.RaftLog.Term(prevLogIndex)
+
+	if err != nil || r.RaftLog.FirstIndex()-1 > prevLogIndex {
+		return r.sendSnapshot(to)
+	}
+
+	// 从 nextIndex 开始发送
+	firstIndex := r.RaftLog.FirstIndex()
+	var entries []*pb.Entry
+	for i := pr.Next; i <= r.RaftLog.LastIndex(); i++ {
+		entries = append(entries, &r.RaftLog.entries[i-firstIndex])
+	}
+	msg := pb.Message{
+		MsgType: pb.MessageType_MsgAppend,
+		To:      to,
+		From:    r.id,
+		Term:    r.Term,
+		LogTerm: prevLogTerm,
+		Index:   prevLogIndex,
+		Entries: entries,
+		Commit:  r.RaftLog.committed,
+	}
+	r.msgs = append(r.msgs, msg)
+	return len(r.msgs) > 0
+}
+
+func (r *Raft) sendSnapshot(to uint64) bool {
+
 	return false
 }
 
@@ -275,6 +309,7 @@ func (r *Raft) sendRequestVote(to uint64) {
 		To:      to,
 		From:    r.id,
 		Term:    r.Term,
+		Index:   lastLogIndex,
 		LogTerm: logTerm,
 	}
 	r.msgs = append(r.msgs, msg)
@@ -350,10 +385,10 @@ func (r *Raft) startElection() {
 	}
 
 	r.becomeCandidate()
-	for pr := range r.Prs {
-		if pr != r.id {
-			r.sendRequestVote(pr)
-			log.Debug(fmt.Sprintf("%x send requestVote to %x at term %d\n", r.id, pr, r.Term))
+	for to := range r.Prs {
+		if to != r.id {
+			r.sendRequestVote(to)
+			log.Debug(fmt.Sprintf("%x send requestVote to %x at term %d\n", r.id, to, r.Term))
 		}
 	}
 }
@@ -396,6 +431,9 @@ func (r *Raft) becomeLeader() {
 	for _, pr := range r.Prs {
 		pr.Match, pr.Next = 0, lastIndex+1
 	}
+
+	r.RaftLog.entries = append(r.RaftLog.entries, pb.Entry{Term: r.Term, Index: lastIndex + 1})
+	r.Prs[r.id].Match, r.Prs[r.id].Next = r.RaftLog.LastIndex(), r.RaftLog.LastIndex()+1
 
 	log.Debug(fmt.Sprintf("%x became leader at term %d\n", r.id, r.Term))
 
@@ -440,17 +478,6 @@ func (r *Raft) Step(m pb.Message) error {
 	return r.automaton.convert(r, &m)
 }
 
-// handleHeartbeat handle Heartbeat RPC request
-func (r *Raft) handleHeartbeat(m pb.Message) {
-	// Your Code Here (2A).
-
-}
-
-// handleSnapshot handle Snapshot RPC request
-func (r *Raft) handleSnapshot(m pb.Message) {
-	// Your Code Here (2C).
-}
-
 // addNode add a new node to raft group
 func (r *Raft) addNode(id uint64) {
 	// Your Code Here (3A).
@@ -484,14 +511,27 @@ func (r *Raft) updateCommitIndex() uint64 {
 	sort.Sort(match)
 
 	// 大多数的 matchIndex[i] ≥ N
-	maxN := match[(len(r.Prs)-1)/2]
-	N := maxN
-	for ; N > maxN; N-- {
+	for N := match[(len(r.Prs)-1)/2]; N > r.RaftLog.committed; N-- {
 		if term, err := r.RaftLog.Term(N); err == nil && term == r.Term {
+			r.RaftLog.committed = N
 			break
 		}
 	}
 
-	r.RaftLog.committed = N
 	return r.RaftLog.committed
+}
+
+func (r *Raft) softState() *SoftState {
+	return &SoftState{
+		Lead:      r.Lead,
+		RaftState: r.State,
+	}
+}
+
+func (r *Raft) hardState() pb.HardState {
+	return pb.HardState{
+		Term:   r.Term,
+		Vote:   r.Vote,
+		Commit: r.RaftLog.committed,
+	}
 }
