@@ -181,12 +181,13 @@ func newRaft(c *Config) *Raft {
 		panic(err)
 	}
 
-	prs := make(map[uint64]*Progress)
-	for _, pr := range configState.Nodes {
-		prs[pr] = &Progress{Next: 0, Match: 0}
-	}
 	if c.peers == nil {
 		c.peers = configState.Nodes
+	}
+
+	prs := make(map[uint64]*Progress)
+	for _, pr := range c.peers {
+		prs[pr] = &Progress{Next: 0, Match: 0}
 	}
 
 	raft := &Raft{
