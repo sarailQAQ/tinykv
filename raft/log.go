@@ -15,6 +15,7 @@
 package raft
 
 import (
+	"github.com/pingcap-incubator/tinykv/log"
 	pb "github.com/pingcap-incubator/tinykv/proto/pkg/eraftpb"
 	"math"
 )
@@ -111,13 +112,36 @@ func (l *RaftLog) allEntries() []pb.Entry {
 // unstableEntries return all the unstable entries
 func (l *RaftLog) unstableEntries() []pb.Entry {
 	// Your Code Here (2A).
-	return l.entries[l.stabled:]
+	if len(l.entries) == 0 || l.stabled >= l.LastIndex() {
+		return make([]pb.Entry, 0)
+	}
+
+	firstIndex, err := l.storage.FirstIndex()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if l.stabled < firstIndex {
+		return l.entries
+	}
+
+	return l.entries[l.stabled-firstIndex+1:]
 }
 
 // nextEnts returns all the committed but not applied entries
 func (l *RaftLog) nextEnts() (ents []pb.Entry) {
 	// Your Code Here (2A).
-	return l.entries[l.applied:l.committed]
+	if len(l.entries) == 0 {
+		return make([]pb.Entry, 0)
+	}
+	first := l.FirstIndex()
+	applied := l.applied
+	commited := l.committed
+	if !(first-1 <= applied && applied < commited && commited <= l.LastIndex()) {
+		// 所有 entry 均被持久化
+		return make([]pb.Entry, 0)
+	}
+	return l.entries[applied-first+1 : commited-first+1]
+
 }
 
 // FirstIndex return the first index of the log entries
