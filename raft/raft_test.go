@@ -51,7 +51,7 @@ type stateMachine interface {
 func (r *Raft) readMessages() []pb.Message {
 	msgs := r.msgs
 	r.msgs = make([]pb.Message, 0)
-
+	
 	return msgs
 }
 

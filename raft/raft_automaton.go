@@ -358,10 +358,49 @@ func handleSnapshot(r *Raft, m *pb.Message) error {
 	metaData := m.Snapshot.Metadata
 	shotIndex := metaData.Index
 	shotTerm := metaData.Term
-	//shotConf := metaData.ConfState
+	shotConf := metaData.ConfState
 
-	if shotIndex < r.RaftLog.committed || shotTerm < r.RaftLog.FirstIndex() {
-
+	if shotIndex < r.RaftLog.committed || shotIndex < r.RaftLog.FirstIndex() {
+		return nil
 	}
+
+	if r.Lead != m.From {
+		r.Lead = m.From
+	}
+
+	// discard entries received before
+	if len(r.RaftLog.entries) > 0 {
+		if shotIndex > r.RaftLog.LastIndex() {
+			r.RaftLog.entries = nil
+		} else {
+			r.RaftLog.entries = r.RaftLog.entries[shotIndex-r.RaftLog.FirstIndex()+1:]
+		}
+	}
+	r.RaftLog.committed = shotIndex
+	r.RaftLog.applied = shotIndex
+	r.RaftLog.stabled = shotIndex
+
+	// cluster member change
+	if shotConf != nil {
+		r.Prs = make(map[uint64]*Progress)
+		for _, node := range shotConf.Nodes {
+			r.Prs[node] = &Progress{}
+			r.Prs[node].Next = r.RaftLog.LastIndex() + 1
+			r.Prs[node].Match = 0
+		}
+	}
+
+	if r.RaftLog.LastIndex() < shotIndex {
+		// add an empty entry, indicate that lastIndex matching lastTerm
+		entry := pb.Entry{
+			EntryType: pb.EntryType_EntryNormal,
+			Term:      shotTerm,
+			Index:     shotIndex,
+			Data:      nil,
+		}
+		r.RaftLog.entries = append(r.RaftLog.entries, entry)
+	}
+	r.RaftLog.pendingSnapshot = m.Snapshot
+	r.sendAppendResp(m.From, r.RaftLog.LastIndex(), false)
 	return nil
 }

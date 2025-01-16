@@ -253,8 +253,28 @@ func (r *Raft) sendAppend(to uint64) bool {
 }
 
 func (r *Raft) sendSnapshot(to uint64) bool {
+	var snapshot pb.Snapshot
+	if !IsEmptySnap(r.RaftLog.pendingSnapshot) {
+		snapshot = *r.RaftLog.pendingSnapshot
+	} else {
+		var err error
+		snapshot, err = r.RaftLog.storage.Snapshot()
+		if err != nil {
+			return false
+		}
+	}
 
-	return false
+	msg := pb.Message{
+		MsgType:  pb.MessageType_MsgSnapshot,
+		Term:     r.Term,
+		Snapshot: &snapshot,
+		To:       to,
+		From:     r.id,
+	}
+
+	r.msgs = append(r.msgs, msg)
+	r.Prs[to].Next = snapshot.Metadata.Index + 1
+	return true
 }
 
 func (r *Raft) sendAppendResp(to uint64, index uint64, reject bool) {
