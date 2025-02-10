@@ -66,6 +66,8 @@ func (ra *raftAutomaton) build() {
 
 	register(StateAll, pb.MessageType_MsgHeartbeat, handleHeartBeat)
 	register(StateLeader, pb.MessageType_MsgHeartbeatResponse, handleHeartbeatResp)
+
+	register(StateAll, pb.MessageType_MsgSnapshot, handleSnapshot)
 }
 
 func (ra *raftAutomaton) convert(r *Raft, msg *pb.Message) error {
@@ -396,7 +398,6 @@ func handleSnapshot(r *Raft, m *pb.Message) error {
 			EntryType: pb.EntryType_EntryNormal,
 			Term:      shotTerm,
 			Index:     shotIndex,
-			Data:      nil,
 		}
 		r.RaftLog.entries = append(r.RaftLog.entries, entry)
 	}

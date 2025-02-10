@@ -116,8 +116,8 @@ func (d *peerMsgHandler) execEntry(entry *eraftpb.Entry, wb *engine_util.WriteBa
 	if msg.GetAdminRequest() != nil {
 		req := msg.AdminRequest
 		switch req.CmdType {
-		//case raft_cmdpb.AdminCmdType_CompactLog:
-		//	d.execCompactLog(entry, req, wb)
+		case raft_cmdpb.AdminCmdType_CompactLog:
+			d.execCompactLog(entry, req, wb)
 		//case raft_cmdpb.AdminCmdType_Split:
 		//	d.execSplit(entry, msg, req, wb)
 		default:
@@ -202,6 +202,32 @@ func (d *peerMsgHandler) execSnap(entry *eraftpb.Entry, req *raft_cmdpb.RaftCmdR
 		}},
 	}
 	d.processProposals(cmdResp, entry, true)
+}
+
+func (d *peerMsgHandler) execCompactLog(entry *eraftpb.Entry, req *raft_cmdpb.AdminRequest, kvWB *engine_util.WriteBatch) {
+	compactLog := req.GetCompactLog()
+	compactIndex := compactLog.GetCompactIndex()
+	compactTerm := compactLog.GetCompactTerm()
+
+	if compactIndex >= d.peerStorage.applyState.TruncatedState.Index {
+		d.peerStorage.applyState.TruncatedState.Index = compactIndex
+		d.peerStorage.applyState.TruncatedState.Term = compactTerm
+		err := kvWB.SetMeta(meta.ApplyStateKey(d.Region().GetId()), d.peerStorage.applyState)
+		if err != nil {
+			log.Panic(err)
+			return
+		}
+		d.ScheduleCompactLog(compactIndex)
+	}
+	adminResp := &raft_cmdpb.AdminResponse{
+		CmdType:    raft_cmdpb.AdminCmdType_CompactLog,
+		CompactLog: &raft_cmdpb.CompactLogResponse{},
+	}
+	cmdResp := &raft_cmdpb.RaftCmdResponse{
+		Header:        &raft_cmdpb.RaftResponseHeader{},
+		AdminResponse: adminResp,
+	}
+	d.processProposals(cmdResp, entry, false)
 }
 
 func (d *peerMsgHandler) processProposals(resp *raft_cmdpb.RaftCmdResponse, entry *eraftpb.Entry, isExecSnap bool) {
@@ -332,7 +358,7 @@ func (d *peerMsgHandler) proposeRaftCommand(msg *raft_cmdpb.RaftCmdRequest, cb *
 
 		data, err := msg.Marshal()
 		if err != nil {
-			log.Panicf(err.Error())
+			log.Panic(err)
 		}
 
 		p := &proposal{index: d.nextProposalIndex(), term: d.Term(), cb: cb}
@@ -341,6 +367,26 @@ func (d *peerMsgHandler) proposeRaftCommand(msg *raft_cmdpb.RaftCmdRequest, cb *
 		err = d.RaftGroup.Propose(data)
 		if err != nil {
 			log.Error(err)
+		}
+	}
+	if msg.AdminRequest != nil {
+		req := msg.AdminRequest
+		switch req.CmdType {
+		case raft_cmdpb.AdminCmdType_CompactLog:
+			data, err := msg.Marshal()
+			if err != nil {
+				log.Panic(err)
+				cb.Done(ErrResp(err))
+				return
+			}
+			p := &proposal{index: d.nextProposalIndex(), term: d.Term(), cb: cb}
+			d.proposals = append(d.proposals, p)
+			err = d.RaftGroup.Propose(data)
+			if err != nil {
+				log.Error(err)
+			}
+		default:
+			log.Panic("Not implemented yet for admin request type: ", msg.AdminRequest.CmdType)
 		}
 	}
 }
