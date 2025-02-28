@@ -72,7 +72,7 @@ func (txn *MvccTxn) PutLock(key []byte, lock *Lock) {
 	// Your Code Here (4A).
 	txn.writes = append(txn.writes, storage.Modify{
 		Data: storage.Put{
-			Key:   EncodeKey(key, lock.Ts),
+			Key:   key,
 			Value: lock.ToBytes(),
 			Cf:    engine_util.CfLock,
 		},
@@ -112,7 +112,7 @@ func (txn *MvccTxn) GetValue(key []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return txn.Reader.GetCF(engine_util.CfDefault, EncodeKey(key, txn.StartTS))
+	return txn.Reader.GetCF(engine_util.CfDefault, EncodeKey(key, write.StartTS))
 }
 
 // PutValue adds a key/value write to this transaction.
@@ -143,7 +143,27 @@ func (txn *MvccTxn) DeleteValue(key []byte) {
 func (txn *MvccTxn) CurrentWrite(key []byte) (*Write, uint64, error) {
 	// Your Code Here (4A).
 	iter := txn.Reader.IterCF(engine_util.CfWrite)
-
+	for iter.Seek(EncodeKey(key, TsMax)); iter.Valid(); iter.Next() {
+		item := iter.Item()
+		gotKey := DecodeUserKey(item.KeyCopy(nil))
+		if !bytes.Equal(gotKey, key) {
+			return nil, 0, nil
+		}
+		value, err := item.ValueCopy(nil)
+		if err != nil || value == nil {
+			return nil, 0, err
+		}
+		write, err := ParseWrite(value)
+		if err != nil || write == nil {
+			return nil, 0, nil
+		}
+		if write.StartTS == txn.StartTS {
+			return write, decodeTimestamp(item.KeyCopy(nil)), nil
+		}
+		if write.StartTS < txn.StartTS {
+			break
+		}
+	}
 	return nil, 0, nil
 }
 
@@ -151,7 +171,26 @@ func (txn *MvccTxn) CurrentWrite(key []byte) (*Write, uint64, error) {
 // write's commit timestamp, or an error.
 func (txn *MvccTxn) MostRecentWrite(key []byte) (*Write, uint64, error) {
 	// Your Code Here (4A).
-	return nil, 0, nil
+	iter := txn.Reader.IterCF(engine_util.CfWrite)
+	iter.Seek(EncodeKey(key, TsMax))
+	if !iter.Valid() {
+		return nil, 0, nil
+	}
+	item := iter.Item()
+	gotKey := DecodeUserKey(item.KeyCopy(nil))
+	if !bytes.Equal(gotKey, key) {
+		return nil, 0, nil
+	}
+	value, err := item.ValueCopy(nil)
+	if err != nil || value == nil {
+		return nil, 0, err
+	}
+	write, err := ParseWrite(value)
+	if err != nil || write == nil {
+		return nil, 0, nil
+	}
+
+	return write, decodeTimestamp(item.KeyCopy(nil)), nil
 }
 
 // EncodeKey encodes a user key and appends an encoded timestamp to a key. Keys and timestamps are encoded so that
